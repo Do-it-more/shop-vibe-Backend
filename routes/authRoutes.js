@@ -12,7 +12,13 @@ const {
     toggleWishlist,
     getWishlist
 } = require('../controllers/authController');
-const { protect } = require('../middleware/authMiddleware');
+const {
+    getUsers,
+    deleteUser,
+    getUserById,
+    updateUser
+} = require('../controllers/userController');
+const { protect, admin } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
 router.post('/', registerUser);
@@ -25,5 +31,12 @@ router.put('/profile', protect, updateUserProfile);
 router.put('/profile-photo', protect, upload.single('image'), updateProfilePhoto);
 router.get('/wishlist', protect, getWishlist);
 router.post('/wishlist/:id', protect, toggleWishlist);
+
+// Admin Routes
+router.route('/').get(protect, admin, getUsers);
+router.route('/:id')
+    .delete(protect, admin, deleteUser)
+    .get(protect, admin, getUserById)
+    .put(protect, admin, updateUser);
 
 module.exports = router;

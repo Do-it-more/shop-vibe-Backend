@@ -19,6 +19,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/users', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/categories', require('./routes/categoryRoutes'));
+app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 
 // Root route
 app.get('/', (req, res) => {

@@ -38,6 +38,7 @@ const registerUser = asyncHandler(async (req, res) => {
             name: user.name,
             email: user.email,
             profilePhoto: user.profilePhoto,
+            role: user.role,
             token: generateToken(user._id)
         });
     } else {
@@ -65,6 +66,7 @@ const loginUser = asyncHandler(async (req, res) => {
             name: user.name,
             email: user.email,
             profilePhoto: user.profilePhoto, // Return profile photo on login
+            role: user.role,
             token: generateToken(user._id, expiresIn)
         });
     } else {
@@ -138,9 +140,9 @@ const forgotPassword = asyncHandler(async (req, res) => {
         console.log('SMTP Connection established successfully');
 
         await transporter.sendMail({
-            from: `"ShopVibe" <${emailUser}>`,
+            from: `"Berlina Fashion Design" <${emailUser}>`,
             to: email,
-            subject: 'ShopVibe Password Reset OTP',
+            subject: 'Berlina Fashion Design Password Reset OTP',
             text: `Your Verification Code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you requested this, please ignore this email.`
         });
 

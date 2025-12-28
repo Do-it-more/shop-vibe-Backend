@@ -5,14 +5,17 @@ const {
     getOrderById,
     updateOrderToPaid,
     getMyOrders,
-    createPaymentIntent
+    createPaymentIntent,
+    getOrders,
+    updateOrderToDelivered
 } = require('../controllers/orderController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, admin } = require('../middleware/authMiddleware');
 
-router.route('/').post(protect, addOrderItems);
+router.route('/').post(protect, addOrderItems).get(protect, admin, getOrders);
 router.route('/myorders').get(protect, getMyOrders);
 router.route('/create-payment-intent').post(protect, createPaymentIntent);
 router.route('/:id').get(protect, getOrderById);
 router.route('/:id/pay').put(protect, updateOrderToPaid);
+router.route('/:id/deliver').put(protect, admin, updateOrderToDelivered);
 
 module.exports = router;
