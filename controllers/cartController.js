@@ -1,0 +1,100 @@
+const asyncHandler = require('express-async-handler');
+const Cart = require('../models/Cart');
+const Product = require('../models/Product');
+
+// @desc    Add item to cart
+// @route   POST /api/cart/add
+// @access  Private
+const addToCart = asyncHandler(async (req, res) => {
+    const { productId, quantity, name, image, price, countInStock } = req.body;
+
+    const user = req.user._id;
+
+    let cart = await Cart.findOne({ user });
+
+    if (!cart) {
+        cart = await Cart.create({
+            user,
+            items: []
+        });
+    }
+
+    const itemIndex = cart.items.findIndex(p => p.product.toString() === productId);
+
+    if (itemIndex > -1) {
+        // Product exists in cart, update quantity
+        let productItem = cart.items[itemIndex];
+        productItem.quantity += quantity;
+        cart.items[itemIndex] = productItem;
+    } else {
+        // Product does not exist in cart, add new item
+        cart.items.push({
+            product: productId,
+            name,
+            quantity,
+            image,
+            price,
+            countInStock
+        });
+    }
+
+    await cart.save();
+    res.status(200).json(cart);
+});
+
+// @desc    Get user cart
+// @route   GET /api/cart
+// @access  Private
+const getCart = asyncHandler(async (req, res) => {
+    const cart = await Cart.findOne({ user: req.user._id });
+    res.json(cart ? cart.items : []);
+});
+
+
+const updateCartItem = asyncHandler(async (req, res) => {
+    const { productId, quantity } = req.body;
+    const user = req.user._id;
+
+    let cart = await Cart.findOne({ user });
+
+    if (!cart) {
+        res.status(404);
+        throw new Error('Cart not found');
+    }
+
+    const itemIndex = cart.items.findIndex(p => p.product.toString() === productId);
+
+    if (itemIndex > -1) {
+        let productItem = cart.items[itemIndex];
+        productItem.quantity = quantity;
+        cart.items[itemIndex] = productItem;
+        await cart.save();
+        res.json(cart);
+    } else {
+        res.status(404);
+        throw new Error('Item not found in cart');
+    }
+});
+
+const removeCartItem = asyncHandler(async (req, res) => {
+    const { productId } = req.params;
+    const user = req.user._id;
+
+    let cart = await Cart.findOne({ user });
+
+    if (!cart) {
+        res.status(404);
+        throw new Error('Cart not found');
+    }
+
+    cart.items = cart.items.filter(item => item.product.toString() !== productId);
+    await cart.save();
+    res.json(cart);
+});
+
+module.exports = {
+    addToCart,
+    getCart,
+    updateCartItem,
+    removeCartItem
+};

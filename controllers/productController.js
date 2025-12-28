@@ -16,6 +16,15 @@ const getProducts = asyncHandler(async (req, res) => {
     res.json(products);
 });
 
+// @desc    Get top rated products
+// @route   GET /api/products/top
+// @access  Public
+const getTopProducts = asyncHandler(async (req, res) => {
+    // Return newest 10 products as a simple "Top" metric for now, or just limit 8
+    const products = await Product.find({}).sort({ createdAt: -1 }).limit(8);
+    res.json(products);
+});
+
 // @desc    Get single product
 // @route   GET /api/products/:id
 // @access  Public
@@ -94,6 +103,7 @@ const updateProduct = asyncHandler(async (req, res) => {
 
 module.exports = {
     getProducts,
+    getTopProducts,
     getProductById,
     createProduct,
     deleteProduct,

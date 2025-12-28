@@ -22,6 +22,7 @@ app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
+app.use('/api/cart', require('./routes/cartRoutes'));
 
 // Root route
 app.get('/', (req, res) => {
