@@ -21,22 +21,32 @@ const {
 const { protect, admin } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
-router.post('/', registerUser);
+// =======================
+// PUBLIC ROUTES
+// =======================
 router.post('/login', loginUser);
+router.post('/register', registerUser);
+router.post('/', registerUser); // Alias for consistency
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-otp', verifyOtp);
 router.post('/reset-password', resetPassword);
+
+// =======================
+// PROTECTED ROUTES
+// =======================
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateUserProfile);
 router.put('/profile-photo', protect, upload.single('image'), updateProfilePhoto);
 router.get('/wishlist', protect, getWishlist);
 router.post('/wishlist/:id', protect, toggleWishlist);
 
-// Admin Routes
-router.route('/').get(protect, admin, getUsers);
+// =======================
+// ADMIN ROUTES
+// =======================
+router.get('/', protect, admin, getUsers);
 router.route('/:id')
-    .delete(protect, admin, deleteUser)
     .get(protect, admin, getUserById)
-    .put(protect, admin, updateUser);
+    .put(protect, admin, updateUser)
+    .delete(protect, admin, deleteUser);
 
 module.exports = router;
