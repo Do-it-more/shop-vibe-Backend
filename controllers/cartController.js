@@ -92,9 +92,25 @@ const removeCartItem = asyncHandler(async (req, res) => {
     res.json(cart);
 });
 
+// @desc    Clear user cart
+// @route   DELETE /api/cart/clear
+// @access  Private
+const clearCart = asyncHandler(async (req, res) => {
+    const user = req.user._id;
+    const cart = await Cart.findOne({ user });
+
+    if (cart) {
+        cart.items = [];
+        await cart.save();
+    }
+
+    res.json({ message: 'Cart cleared' });
+});
+
 module.exports = {
     addToCart,
     getCart,
     updateCartItem,
-    removeCartItem
+    removeCartItem,
+    clearCart
 };

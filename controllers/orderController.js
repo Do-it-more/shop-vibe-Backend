@@ -43,7 +43,7 @@ const addOrderItems = asyncHandler(async (req, res) => {
 const getOrderById = asyncHandler(async (req, res) => {
     const order = await Order.findById(req.params.id).populate(
         'user',
-        'name email'
+        'name email phoneNumber'
     );
 
     if (order) {
@@ -95,7 +95,7 @@ const updateOrderToPaid = asyncHandler(async (req, res) => {
                 });
 
                 const mailOptions = {
-                    from: `"Berlina Fashion Design Support" <${emailUser}>`,
+                    from: `"Barlina Fashion Design Support" <${emailUser}>`,
                     to: order.user.email,
                     subject: `Order Receipt: #${updatedOrder._id}`,
                     html: `
@@ -191,6 +191,54 @@ const updateOrderToDelivered = asyncHandler(async (req, res) => {
         order.deliveredAt = Date.now();
 
         const updatedOrder = await order.save();
+
+        // --- SEND DELIVERY EMAIL ---
+        const emailUser = process.env.EMAIL_USER;
+        const emailPass = process.env.EMAIL_PASS;
+
+        if (emailUser && emailPass && !emailUser.includes('your_email')) {
+            try {
+                // Fetch user email if not populated
+                const populatedOrder = await Order.findById(updatedOrder._id).populate('user', 'name email');
+
+                const transporter = nodemailer.createTransport({
+                    service: 'gmail',
+                    auth: {
+                        user: emailUser,
+                        pass: emailPass
+                    }
+                });
+
+                const mailOptions = {
+                    from: `"Barlina Fashion Design Team" <${emailUser}>`,
+                    to: populatedOrder.user.email,
+                    subject: `Order Delivered: #${updatedOrder._id}`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                            <h2 style="color: #10B981;">Your Order Has Been Delivered!</h2>
+                            <p>Hi ${populatedOrder.user.name},</p>
+                            <p>Good news! Your order <strong>#${updatedOrder._id}</strong> has been delivered.</p>
+                            
+                            <p>We hope you love your purchase. If you have any feedback or issues, please don't hesitate to reach out.</p>
+
+                            <p style="margin-top: 20px;">
+                                <a href="http://localhost:5173/order/${updatedOrder._id}" style="background-color: #4F46E5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order Details</a>
+                            </p>
+
+                            <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                                Thank you for shopping with Barlina Fashion.
+                            </p>
+                        </div>
+                    `
+                };
+
+                await transporter.sendMail(mailOptions);
+                console.log(`Delivery email sent to ${populatedOrder.user.email}`);
+            } catch (error) {
+                console.error("Failed to send delivery email:", error);
+            }
+        }
+
         res.json(updatedOrder);
     } else {
         res.status(404);

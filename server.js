@@ -3,6 +3,9 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 const connectDB = require('./config/db');
+const { initializeFirebaseAdmin } = require('./config/firebaseAdmin');
+
+initializeFirebaseAdmin();
 
 dotenv.config();
 
@@ -23,6 +26,9 @@ app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/cart', require('./routes/cartRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/complaints', require('./routes/complaintRoutes'));
+app.use('/api/coupons', require('./routes/couponRoutes'));
 
 // Root route
 app.get('/', (req, res) => {
@@ -31,7 +37,7 @@ app.get('/', (req, res) => {
 
 // Error handler (MUST be last)
 app.use((err, req, res, next) => {
-    const statusCode = res.statusCode || 500;
+    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
     res.status(statusCode).json({
         message: err.message,
         stack: process.env.NODE_ENV === 'production' ? null : err.stack,

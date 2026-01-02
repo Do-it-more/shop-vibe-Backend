@@ -11,6 +11,22 @@ const userSchema = mongoose.Schema({
         required: [true, 'Please add an email'],
         unique: true
     },
+    phoneNumber: {
+        type: String,
+        required: [false, 'Please add a phone number']
+    },
+    address: {
+        type: String,
+        default: ''
+    },
+    isEmailVerified: {
+        type: Boolean,
+        default: false
+    },
+    isPhoneVerified: {
+        type: Boolean,
+        default: false
+    },
     password: {
         type: String,
         required: [true, 'Please add a password']
