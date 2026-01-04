@@ -16,8 +16,13 @@ const userSchema = mongoose.Schema({
         required: [false, 'Please add a phone number']
     },
     address: {
-        type: String,
-        default: ''
+        street: { type: String, default: '' },
+        addressLine2: { type: String, default: '' },
+        city: { type: String, default: '' },
+        state: { type: String, default: '' },
+        postalCode: { type: String, default: '' },
+        country: { type: String, default: '' },
+        phoneNumber: { type: String, default: '' }
     },
     isEmailVerified: {
         type: Boolean,

@@ -6,6 +6,7 @@ const {
     getMe,
     updateProfilePhoto,
     updateUserProfile,
+    deleteMyAccount,
     forgotPassword,
     verifyOtp,
     resetPassword,
@@ -13,8 +14,7 @@ const {
     getWishlist,
     sendVerificationEmail,
     verifyEmailOtp,
-    sendPhoneVerification,
-    verifyPhoneOtp,
+
     deleteProfilePhoto
 } = require('../controllers/authController');
 const {
@@ -38,14 +38,14 @@ router.post('/verify-otp', verifyOtp);
 router.post('/reset-password', resetPassword);
 router.post('/send-verification', sendVerificationEmail);
 router.post('/verify-email', verifyEmailOtp);
-router.post('/send-phone-verification', sendPhoneVerification);
-router.post('/verify-phone', verifyPhoneOtp);
+
 
 // =======================
 // PROTECTED ROUTES
 // =======================
 router.get('/me', protect, getMe);
 router.put('/profile', protect, updateUserProfile);
+router.delete('/profile', protect, deleteMyAccount);
 router.put('/profile-photo', protect, upload.single('image'), updateProfilePhoto);
 router.delete('/profile-photo', protect, deleteProfilePhoto);
 router.get('/wishlist', protect, getWishlist);

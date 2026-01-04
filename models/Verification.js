@@ -19,7 +19,6 @@ const verificationSchema = mongoose.Schema({
     timestamps: true
 });
 
-// Create TTL index
-verificationSchema.index({ "expiresAt": 1 }, { expireAfterSeconds: 0 });
+
 
 module.exports = mongoose.model('Verification', verificationSchema);

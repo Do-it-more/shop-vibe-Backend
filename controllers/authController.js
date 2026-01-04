@@ -12,7 +12,14 @@ const { admin } = require('../config/firebaseAdmin');
 const registerUser = asyncHandler(async (req, res) => {
     const { name, email, password, phoneNumber, verificationToken, phoneVerificationToken } = req.body;
 
+    // Debugging logs for registration flow
+    console.log(`[Register] Request for: ${email}`);
+    if (process.env.NODE_ENV !== 'production') {
+        console.log('Body Tokens:', { verificationToken: !!verificationToken, phoneVerificationToken: !!phoneVerificationToken });
+    }
+
     if (!name || !email || !password || !phoneNumber) {
+
         res.status(400);
         throw new Error('Please add all fields including Phone Number');
     }
@@ -36,26 +43,40 @@ const registerUser = asyncHandler(async (req, res) => {
             throw new Error('Invalid email verification token');
         }
 
-        // 2. Verify Phone Token (Firebase ID Token)
-        let verifiedPhoneNumber = phoneNumber;
-
-        // Skip Firebase check if in DEV mode and using a specific test number if needed, 
-        // BUT user asked for REAL verification. So we strictly verify.
-        // Unless admin is not initialized (dev mode without keys)
-        if (admin.apps.length) {
-            const decodedFirebaseToken = await admin.auth().verifyIdToken(phoneVerificationToken);
-            verifiedPhoneNumber = decodedFirebaseToken.phone_number;
-
-            // Normalize numbers for comparison (Firebase returns E.164 e.g. +919000000000)
-            // Frontend sends 10 digit, so we might need check.
-            // Let's rely on Firebase's verified number.
-
-            // Simple check: does the verified number contain the input number?
-            if (!verifiedPhoneNumber.includes(phoneNumber)) {
-                throw new Error(`Phone number mismatch. Verified: ${verifiedPhoneNumber}`);
+        // 2. Verify Phone Token (Custom JWT or Firebase ID Token)
+        try {
+            // First check if it is our own Custom JWT (old flow)
+            try {
+                const decodedPhone = jwt.verify(phoneVerificationToken, process.env.JWT_SECRET);
+                if (decodedPhone.phone !== phoneNumber || !decodedPhone.verified) {
+                    throw new Error('Invalid phone verification token');
+                }
+            } catch (jwtError) {
+                // Not a custom JWT, assume it's a Firebase ID Token
+                if (admin.apps.length) {
+                    try {
+                        const decodedFirebaseToken = await admin.auth().verifyIdToken(phoneVerificationToken);
+                        const verifiedPhoneNumber = decodedFirebaseToken.phone_number;
+                        // Firebase phone numbers are E.164 (+91...). 
+                        // Our phoneNumber might be local (637...) or +91...
+                        // Simple check:
+                        if (!verifiedPhoneNumber.includes(phoneNumber)) {
+                            throw new Error(`Phone number mismatch. Verified: ${verifiedPhoneNumber}`);
+                        }
+                    } catch (firebaseError) {
+                        throw new Error('Phone verification failed: Invalid Firebase Token >> ' + firebaseError.message);
+                    }
+                } else {
+                    // DEV MODE: Firebase Admin not initialized (missing .env)
+                    // We ALLOW the registration to proceed to unblock the user.
+                    console.warn("⚠️ DEV MODE: Firebase Admin not initialized. Skipping backend phone token verification.");
+                    console.warn("   To fix: Add FIREBASE_SERVICE_ACCOUNT to Backend/.env");
+                }
             }
-        } else {
-            console.warn("⚠️ Firebase Admin not initialized. Skipping strict Token verification (DEV ONLY)");
+
+        } catch (error) {
+            res.status(400);
+            throw new Error('Verification failed: ' + error.message);
         }
 
     } catch (error) {
@@ -122,6 +143,7 @@ const loginUser = asyncHandler(async (req, res) => {
             _id: user.id,
             name: user.name,
             email: user.email,
+            phoneNumber: user.phoneNumber,
             profilePhoto: user.profilePhoto, // Return profile photo on login
             address: user.address,
             role: user.role,
@@ -171,12 +193,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     const isDevMode = !emailUser || !emailPass || emailUser.includes('your_email');
 
     if (isDevMode) {
-        console.log('================================================');
-        console.log('⚠️  DEV MODE: EMAIL CREDENTIALS INVALID ⚠️');
-        console.log(`Current User: ${emailUser}`);
-        console.log(`Tip: Restart server if you just updated .env`);
-        console.log(`OTP for ${email}: ${otp}`);
-        console.log('================================================');
+        console.log(`[Dev] Password Reset OTP for ${email}: ${otp}`);
 
         res.status(200).json({ message: 'OTP generated (Check Server Console)' });
         return;
@@ -215,12 +232,6 @@ const forgotPassword = asyncHandler(async (req, res) => {
         }
 
         // Fallback log
-        console.log('================================================');
-        console.log('⚠️  EMAIL FAILED - FALLBACK OTP ⚠️');
-        console.log(`OTP for ${email}: ${otp}`);
-        console.log('================================================');
-
-        // Still return success to frontend so user isn't stuck
         res.status(200).json({ message: 'Email failed, check console for OTP' });
     }
 });
@@ -370,7 +381,16 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 
     if (user) {
         user.name = req.body.name || user.name;
-        user.address = req.body.address || user.address;
+
+        // Handle Phone Number update
+        if (req.body.phoneNumber) {
+            user.phoneNumber = req.body.phoneNumber;
+        }
+
+        if (req.body.address) {
+            user.address = req.body.address;
+        }
+
         if (req.body.password) {
             user.password = req.body.password;
         }
@@ -381,6 +401,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
             _id: updatedUser._id,
             name: updatedUser.name,
             email: updatedUser.email,
+            phoneNumber: updatedUser.phoneNumber,
             profilePhoto: updatedUser.profilePhoto,
             address: updatedUser.address,
             token: generateToken(updatedUser._id),
@@ -435,8 +456,8 @@ const getWishlist = asyncHandler(async (req, res) => {
 // @route   POST /api/users/send-verification
 // @access  Public
 const sendVerificationEmail = asyncHandler(async (req, res) => {
-    console.log(`[Verification] Request for: ${req.body.email}`);
     const { email } = req.body;
+    console.log(`[Verification] OTP Request for: ${email}`);
 
     if (!email) {
         res.status(400);
@@ -474,10 +495,7 @@ const sendVerificationEmail = asyncHandler(async (req, res) => {
     const isDevMode = !emailUser || !emailPass || emailUser.includes('your_email');
 
     if (isDevMode) {
-        console.log('================================================');
-        console.log('⚠️  DEV MODE: VERIFICATION OTP ⚠️');
-        console.log(`OTP for ${email}: ${otp}`);
-        console.log('================================================');
+        console.log(`[Dev] Verification OTP for ${email}: ${otp}`);
         res.status(200).json({ message: 'OTP generated (Check Server Console)' });
         return;
     }
@@ -500,10 +518,8 @@ const sendVerificationEmail = asyncHandler(async (req, res) => {
         res.status(200).json({ message: 'Verification email sent' });
     } catch (error) {
         console.error("Nodemailer Error:", error);
-        console.log('================================================');
-        console.log('⚠️  EMAIL FAILED - FALLBACK OTP ⚠️');
-        console.log(`OTP for ${email}: ${otp}`);
-        console.log('================================================');
+        // Fallback if email fails
+        console.log(`[Dev] Verification OTP for ${email}: ${otp}`);
         res.status(200).json({ message: 'Email failed, check console for OTP' });
     }
 });
@@ -549,86 +565,20 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
     });
 });
 
-// @desc    Send Phone Verification OTP
-// @route   POST /api/users/send-phone-verification
-// @access  Public
-const sendPhoneVerification = asyncHandler(async (req, res) => {
-    const { phone } = req.body;
-    console.log(`[Phone Verification] Request for: ${phone}`);
+// @desc    Delete user account (Self)
+// @route   DELETE /api/users/profile
+// @access  Private
+const deleteMyAccount = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
 
-    if (!phone) {
-        res.status(400);
-        throw new Error('Please provide a phone number');
+    if (user) {
+        await user.deleteOne();
+        res.json({ message: 'User account deleted' });
+    } else {
+        res.status(404);
+        throw new Error('User not found');
     }
-
-    const userExists = await User.findOne({ phoneNumber: phone });
-    if (userExists) {
-        res.status(400);
-        throw new Error('User already exists with this phone number');
-    }
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const salt = await bcrypt.genSalt(10);
-    const hashedOtp = await bcrypt.hash(otp, salt);
-
-    await Verification.findOneAndUpdate(
-        { identifier: phone },
-        {
-            identifier: phone,
-            otp: hashedOtp,
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000)
-        },
-        { upsert: true, new: true }
-    );
-
-    // DEV MODE SMS
-    console.log('================================================');
-    console.log('📱 DEV MODE: SMS OTP 📱');
-    console.log(`OTP for ${phone}: ${otp}`);
-    console.log('================================================');
-
-    res.status(200).json({ message: 'OTP sent to mobile number' });
 });
-
-// @desc    Verify Phone OTP
-// @route   POST /api/users/verify-phone
-// @access  Public
-const verifyPhoneOtp = asyncHandler(async (req, res) => {
-    const { phone, otp } = req.body;
-
-    if (!phone || !otp) {
-        res.status(400);
-        throw new Error('Please provide phone and OTP');
-    }
-
-    const verification = await Verification.findOne({ identifier: phone });
-
-    if (!verification) {
-        res.status(400);
-        throw new Error('Invalid or expired verification session');
-    }
-
-    const isMatch = await bcrypt.compare(otp, verification.otp);
-    if (!isMatch) {
-        res.status(400);
-        throw new Error('Invalid OTP');
-    }
-
-    const phoneVerificationToken = jwt.sign(
-        { phone, verified: true },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-    );
-
-    await Verification.deleteOne({ identifier: phone });
-
-    res.status(200).json({
-        message: 'Phone verified successfully',
-        phoneVerificationToken
-    });
-});
-
-
 
 // Generate JWT
 const generateToken = (id, expiresIn = '30d') => {
@@ -644,14 +594,12 @@ module.exports = {
     updateProfilePhoto,
     deleteProfilePhoto,
     updateUserProfile,
+    deleteMyAccount,
     forgotPassword,
     verifyOtp,
     resetPassword,
     toggleWishlist,
     getWishlist,
-    getWishlist,
     sendVerificationEmail,
     verifyEmailOtp,
-    sendPhoneVerification,
-    verifyPhoneOtp
 };

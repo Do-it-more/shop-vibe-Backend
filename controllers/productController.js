@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const Product = require('../models/Product');
+const Order = require('../models/Order');
 
 // @desc    Get all products
 // @route   GET /api/products
@@ -14,7 +15,8 @@ const getProducts = asyncHandler(async (req, res) => {
 
     const category = req.query.category ? { category: req.query.category } : {};
 
-    const products = await Product.find({ ...keyword, ...category });
+    const products = await Product.find({ ...keyword, ...category })
+        .select('name price image countInStock rating numReviews category');
     res.json(products);
 });
 
@@ -23,7 +25,10 @@ const getProducts = asyncHandler(async (req, res) => {
 // @access  Public
 const getTopProducts = asyncHandler(async (req, res) => {
     // Return newest 10 products as a simple "Top" metric for now, or just limit 8
-    const products = await Product.find({}).sort({ createdAt: -1 }).limit(8);
+    const products = await Product.find({})
+        .sort({ createdAt: -1 })
+        .select('name price image countInStock rating numReviews category')
+        .limit(8);
     res.json(products);
 });
 
@@ -117,11 +122,29 @@ const updateProduct = asyncHandler(async (req, res) => {
 // @desc    Create new review
 // @route   POST /api/products/:id/reviews
 // @access  Private
+
+// ... (existing code)
+
+// @desc    Create new review
+// @route   POST /api/products/:id/reviews
+// @access  Private
 const createProductReview = asyncHandler(async (req, res) => {
     const { rating, comment } = req.body;
     const product = await Product.findById(req.params.id);
 
     if (product) {
+        // Check if user has purchased the item
+        const hasPurchased = await Order.findOne({
+            user: req.user._id,
+            'orderItems.product': req.params.id,
+            isPaid: true
+        });
+
+        if (!hasPurchased) {
+            res.status(400);
+            throw new Error('You can only review products you have purchased.');
+        }
+
         const alreadyReviewed = product.reviews.find(
             (r) => r.user.toString() === req.user._id.toString()
         );
@@ -152,6 +175,78 @@ const createProductReview = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Manual Stock Adjustment (Admin)
+// @route   PATCH /api/products/:id/stock
+// @access  Private/Admin
+const updateStockManual = asyncHandler(async (req, res) => {
+    const { qtyChange } = req.body; // e.g., 10 to add, -5 to remove
+
+    if (qtyChange === undefined || isNaN(qtyChange)) {
+        res.status(400);
+        throw new Error('Please provide a valid quantity change (qtyChange)');
+    }
+
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+        // Atomic update to prevent overwriting live stock changes from orders
+        const result = await Product.findOneAndUpdate(
+            {
+                _id: req.params.id,
+                // If decreasing, ensure we don't go below 0
+                ...(qtyChange < 0 ? { countInStock: { $gte: Math.abs(qtyChange) } } : {})
+            },
+            { $inc: { countInStock: qtyChange } },
+            { new: true }
+        );
+
+        if (!result) {
+            res.status(400);
+            throw new Error(qtyChange < 0 ? 'Insufficient stock for this manual reduction' : 'Failed to update stock');
+        }
+
+        console.log(`[Admin Stock Update] ${product.name}: ${qtyChange < 0 ? 'Reduced' : 'Added'} ${Math.abs(qtyChange)}. New stock: ${result.countInStock}`);
+        res.json(result);
+    } else {
+        res.status(404);
+        throw new Error('Product not found');
+    }
+});
+
+// @desc    Get related products
+// @route   GET /api/products/:id/related
+// @access  Public
+const getRelatedProducts = asyncHandler(async (req, res) => {
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+        // 1. Get products from the same category
+        let related = await Product.find({
+            _id: { $ne: product._id },
+            category: product.category
+        })
+            .select('name price image countInStock rating numReviews category')
+            .limit(8);
+
+        // 2. If we have less than 8, fill the remaining space with other products
+        if (related.length < 8) {
+            const excludeIds = [product._id, ...related.map(p => p._id)];
+            const filler = await Product.find({
+                _id: { $nin: excludeIds }
+            })
+                .select('name price image countInStock rating numReviews category')
+                .limit(8 - related.length);
+
+            related = [...related, ...filler];
+        }
+
+        res.json(related);
+    } else {
+        res.status(404);
+        throw new Error('Product not found');
+    }
+});
+
 module.exports = {
     getProducts,
     getTopProducts,
@@ -159,5 +254,7 @@ module.exports = {
     createProduct,
     deleteProduct,
     updateProduct,
-    createProductReview
+    createProductReview,
+    updateStockManual,
+    getRelatedProducts
 };

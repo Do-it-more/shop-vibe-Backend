@@ -15,7 +15,9 @@ const getCategories = asyncHandler(async (req, res) => {
 const createCategory = asyncHandler(async (req, res) => {
     const { name, description, image, order } = req.body;
 
-    const categoryExists = await Category.findOne({ name });
+    const categoryExists = await Category.findOne({
+        name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+    });
     if (categoryExists) {
         res.status(400);
         throw new Error('Category already exists');
@@ -43,6 +45,16 @@ const updateCategory = asyncHandler(async (req, res) => {
     const category = await Category.findById(req.params.id);
 
     if (category) {
+        if (req.body.name && req.body.name !== category.name) {
+            const categoryExists = await Category.findOne({
+                name: { $regex: new RegExp(`^${req.body.name.trim()}$`, 'i') },
+                _id: { $ne: category._id }
+            });
+            if (categoryExists) {
+                res.status(400);
+                throw new Error('Category already exists with this name');
+            }
+        }
         category.name = req.body.name || category.name;
         category.description = req.body.description || category.description;
         category.image = req.body.image || category.image;

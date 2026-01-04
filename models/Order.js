@@ -6,6 +6,10 @@ const orderSchema = mongoose.Schema({
         required: true,
         ref: 'User'
     },
+    invoiceNumber: {
+        type: String,
+        unique: true
+    },
     orderItems: [{
         name: { type: String, required: true },
         qty: { type: Number, required: true },
@@ -62,6 +66,14 @@ const orderSchema = mongoose.Schema({
         default: false
     },
     deliveredAt: {
+        type: Date
+    },
+    isCancelled: {
+        type: Boolean,
+        required: true,
+        default: false
+    },
+    cancelledAt: {
         type: Date
     }
 }, {

@@ -7,7 +7,7 @@ const Product = require('../models/Product');
 // @access  Private
 const addToCart = asyncHandler(async (req, res) => {
     const { productId, quantity, name, image, price, countInStock } = req.body;
-
+    const qty = Number(quantity);
     const user = req.user._id;
 
     let cart = await Cart.findOne({ user });
@@ -19,19 +19,18 @@ const addToCart = asyncHandler(async (req, res) => {
         });
     }
 
-    const itemIndex = cart.items.findIndex(p => p.product.toString() === productId);
+    // Robust comparison using string conversion for both IDs
+    const itemIndex = cart.items.findIndex(p => p.product.toString() === productId.toString());
 
     if (itemIndex > -1) {
         // Product exists in cart, update quantity
-        let productItem = cart.items[itemIndex];
-        productItem.quantity += quantity;
-        cart.items[itemIndex] = productItem;
+        cart.items[itemIndex].quantity += qty;
     } else {
         // Product does not exist in cart, add new item
         cart.items.push({
             product: productId,
             name,
-            quantity,
+            quantity: qty,
             image,
             price,
             countInStock
