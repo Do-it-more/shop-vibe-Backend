@@ -201,10 +201,15 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
     // Explicit Nodemailer Config for Gmail
     const transporter = nodemailer.createTransport({
-        service: 'gmail', // Built-in transport for Gmail
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
             user: emailUser,
             pass: emailPass
+        },
+        tls: {
+            rejectUnauthorized: false
         }
     });
 
@@ -500,11 +505,17 @@ const sendVerificationEmail = asyncHandler(async (req, res) => {
         return;
     }
 
+    // Explicit Nodemailer Config for Gmail - More robust for Render
     const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // Use SSL
         auth: {
             user: emailUser,
             pass: emailPass
+        },
+        tls: {
+            rejectUnauthorized: false // Fixes some cloud SSL issues
         }
     });
 
