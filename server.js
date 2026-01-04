@@ -33,6 +33,7 @@ app.use('/api/cart', require('./routes/cartRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/complaints', require('./routes/complaintRoutes'));
 app.use('/api/coupons', require('./routes/couponRoutes'));
+app.use('/api/test-email', require('./routes/testEmailRoute'));
 
 // Root route
 app.get('/', (req, res) => {
