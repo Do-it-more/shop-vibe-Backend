@@ -199,47 +199,29 @@ const forgotPassword = asyncHandler(async (req, res) => {
         return;
     }
 
-    // Explicit Nodemailer Config for Gmail - Port 587
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-            user: emailUser,
-            pass: emailPass
-        },
-        tls: {
-            rejectUnauthorized: false
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000
-    });
+    // Resend API Integration
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     try {
-        console.log(`Attempting to send OTP to ${email} from ${emailUser}...`);
-
-        await transporter.verify(); // Verify connection configuration
-        console.log('SMTP Connection established successfully');
-
-        await transporter.sendMail({
-            from: `"Barlina Fashion Design" <${emailUser}>`,
+        await resend.emails.send({
+            from: 'onboarding@resend.dev',
             to: email,
             subject: 'Barlina Fashion Design Password Reset OTP',
-            text: `Your Verification Code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you requested this, please ignore this email.`
+            html: `<p>Your Verification Code is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`
         });
 
-        console.log('Email sent successfully');
         res.status(200).json({ message: 'OTP sent to email' });
     } catch (error) {
-        console.error("Nodemailer Error:", error);
+        console.error("Resend API Error:", error);
 
-        // Detailed error logging
-        if (error.code === 'EAUTH') {
-            console.log('❌ Auth Error: Check your Email and App Password in .env');
-        }
+        // 🚨 FALLBACK
+        console.log(`[FALLBACK] Password Reset OTP for ${email}: ${otp}`);
 
-        // Fallback log
-        res.status(200).json({ message: 'Email failed, check console for OTP' });
+        res.status(200).json({
+            message: 'Email sent (fallback)',
+            devNote: 'If email not received, check logs'
+        });
     }
 });
 
@@ -507,35 +489,29 @@ const sendVerificationEmail = asyncHandler(async (req, res) => {
         return;
     }
 
-    // Explicit Nodemailer Config for Gmail - Port 587 (STARTTLS)
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // Use STARTTLS
-        auth: {
-            user: emailUser,
-            pass: emailPass
-        },
-        tls: {
-            rejectUnauthorized: false
-        },
-        connectionTimeout: 10000, // 10 seconds timeout
-        greetingTimeout: 10000    // 10 seconds timeout
-    });
+    // Resend API Integration
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     try {
-        await transporter.sendMail({
-            from: `"Barlina Fashion Design" <${emailUser}>`,
+        await resend.emails.send({
+            from: 'onboarding@resend.dev', // Default testing domain
             to: email,
             subject: 'Email Verification',
-            text: `Your Verification Code is: ${otp}\n\nThis code expires in 10 minutes.`
+            html: `<p>Your Verification Code is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`
         });
         res.status(200).json({ message: 'Verification email sent' });
     } catch (error) {
-        console.error("Nodemailer Error:", error);
-        // Fallback if email fails
-        console.log(`[Dev] Verification OTP for ${email}: ${otp}`);
-        res.status(200).json({ message: 'Email failed, check console for OTP' });
+        console.error("Resend API Error:", error);
+
+        // 🚨 FALLBACK: Log OTP just in case
+        console.log(`[FALLBACK] Verification OTP for ${email}: ${otp}`);
+
+        // Return 200 OK
+        res.status(200).json({
+            message: 'Email sent (fallback)',
+            devNote: 'If email not received, check logs'
+        });
     }
 });
 

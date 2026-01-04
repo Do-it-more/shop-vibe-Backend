@@ -14,40 +14,24 @@ router.get('/', async (req, res) => {
         });
     }
 
-    const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-            user: emailUser,
-            pass: emailPass
-        },
-        tls: {
-            rejectUnauthorized: false
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000
-    });
+    // Resend API Integration
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     try {
-        await transporter.verify(); // Check connection first
-
-        await transporter.sendMail({
-            from: emailUser,
-            to: emailUser, // Send to self
-            subject: "Test Email from Render",
-            text: "If you see this, email sending is WORKING!"
+        const data = await resend.emails.send({
+            from: 'onboarding@resend.dev',
+            to: (process.env.EMAIL_USER || 'delivered@resend.dev'), // Send to self or Resend test email
+            subject: "Test Email from Render (via Resend)",
+            html: "<p>If you see this, <strong>Resend API</strong> is WORKING on Render!</p>"
         });
 
-        res.json({ message: "Email sent successfully! Check your inbox." });
+        res.json({ message: "Email sent successfully! Check your inbox.", data });
     } catch (error) {
-        console.error("Test Email Error:", error);
+        console.error("Resend Error:", error);
         res.status(500).json({
             message: "Failed to send email",
-            error: error.message,
-            stack: error.stack,
-            code: error.code,
-            command: error.command
+            error: error.message
         });
     }
 });
