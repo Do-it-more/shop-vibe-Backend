@@ -199,18 +199,20 @@ const forgotPassword = asyncHandler(async (req, res) => {
         return;
     }
 
-    // Explicit Nodemailer Config for Gmail
+    // Explicit Nodemailer Config for Gmail - Port 587
     const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
+        port: 587,
+        secure: false,
         auth: {
             user: emailUser,
             pass: emailPass
         },
         tls: {
             rejectUnauthorized: false
-        }
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000
     });
 
     try {
@@ -505,18 +507,20 @@ const sendVerificationEmail = asyncHandler(async (req, res) => {
         return;
     }
 
-    // Explicit Nodemailer Config for Gmail - More robust for Render
+    // Explicit Nodemailer Config for Gmail - Port 587 (STARTTLS)
     const transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 465,
-        secure: true, // Use SSL
+        port: 587,
+        secure: false, // Use STARTTLS
         auth: {
             user: emailUser,
             pass: emailPass
         },
         tls: {
-            rejectUnauthorized: false // Fixes some cloud SSL issues
-        }
+            rejectUnauthorized: false
+        },
+        connectionTimeout: 10000, // 10 seconds timeout
+        greetingTimeout: 10000    // 10 seconds timeout
     });
 
     try {
